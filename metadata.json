@@ -1,0 +1,7 @@
+{
+  "name": "SweetSpot - AI Recipe & Visualizer",
+  "description": "An AI-powered dessert and beverage analyzer that identifies dishes from photos or text, generates detailed recipes, and provides cute, minimal illustrations for every step.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

@@ -29,7 +29,8 @@ import {
   AlertCircle,
   Lock,
   Info,
-  RefreshCcw
+  RefreshCcw,
+  Image as ImageIcon
 } from 'lucide-react';
 import { analyzeInput, generateStepIllustration, generateHeroImage } from './geminiService';
 import { RecipeData, IllustrationState, UserProfile, DiaryEntry, ProficiencyLevel } from './types';
@@ -80,6 +81,7 @@ export default function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [requestedServings, setRequestedServings] = useState(2);
+  const [selectedSize, setSelectedSize] = useState('12oz');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [recipe, setRecipe] = useState<RecipeData | null>(null);
   const [heroImage, setHeroImage] = useState<string | null>(null);
@@ -376,7 +378,8 @@ export default function App() {
       if (text.includes('coffee')) p = profile.levels.coffee;
       else if (text.includes('drink') || text.includes('beverage')) p = profile.levels.beverage;
       
-      const data = await analyzeInput(selectedFile || queryText, p, requestedServings);
+      const currentSize = (activeCategory === 'Coffee' || activeCategory === 'Beverage') ? selectedSize : undefined;
+      const data = await analyzeInput(selectedFile || queryText, p, requestedServings, currentSize);
       setRecipe(data);
 
       if (session?.user) {
@@ -603,27 +606,45 @@ export default function App() {
         {showPostFlow && (
           <div className="absolute inset-0 z-[600] bg-white animate-in slide-in-from-bottom duration-300 flex flex-col">
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-50">
-              <button onClick={() => { setShowPostFlow(false); setPostImage(null); }} className="p-2"><X size={24} /></button>
-              <h3 className="font-bold text-lg">New Post</h3>
-              <button onClick={finalizePost} disabled={!postImage || isPosting} className={`font-bold text-orange-500 ${(!postImage || isPosting) && 'opacity-30'}`}>
+              <button onClick={() => { setShowPostFlow(false); setPostImage(null); setPostCaption(''); }} className="p-2 hover:bg-slate-50 rounded-full transition-colors"><X size={24} /></button>
+              <h3 className="font-bold text-lg">New Diary Entry</h3>
+              <button onClick={finalizePost} disabled={!postImage || isPosting} className={`font-bold text-orange-500 px-4 py-2 rounded-xl active:scale-95 transition-all ${(!postImage || isPosting) && 'opacity-30 cursor-not-allowed'}`}>
                 {isPosting ? <Loader2 className="animate-spin" size={20} /> : 'Share'}
               </button>
             </div>
-            {!postImage ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-10 bg-slate-50">
-                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-sm"><Camera size={40} className="text-slate-300" /></div>
-                <p className="text-slate-400 font-medium mb-8">Share your latest creation</p>
-                <button onClick={() => postFileRef.current?.click()} className="bg-orange-500 text-white px-8 py-3 rounded-xl font-bold">Choose from Library</button>
-                <input type="file" ref={postFileRef} className="hidden" accept="image/*" onChange={handlePostImageSelect} />
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto">
-                <div className="aspect-square w-full bg-slate-100"><img src={postImage} className="w-full h-full object-cover" /></div>
-                <div className="p-6">
-                  <textarea placeholder="Write a caption..." className="w-full h-32 resize-none outline-none text-sm placeholder:text-slate-300" value={postCaption} onChange={e => setPostCaption(e.target.value)} />
+            
+            <div className="flex-1 overflow-y-auto hide-scrollbar">
+              {!postImage ? (
+                <div className="flex flex-col items-center justify-center p-12 bg-slate-50/50 min-h-[400px]">
+                  <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center mb-8 shadow-sm border border-slate-100"><Camera size={40} className="text-slate-300" /></div>
+                  <p className="text-slate-500 font-medium mb-10 text-center max-w-[200px]">Snap your creation or choose a photo</p>
+                  <button onClick={() => postFileRef.current?.click()} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-bold shadow-xl shadow-slate-100 flex items-center gap-2"><Upload size={18} /> Choose Photo</button>
+                  <input type="file" ref={postFileRef} className="hidden" accept="image/*" onChange={handlePostImageSelect} />
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="p-6 space-y-8 animate-in fade-in zoom-in duration-300">
+                  <div className="aspect-square w-full rounded-3xl overflow-hidden shadow-2xl relative bg-slate-100">
+                    <img src={postImage} className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => postFileRef.current?.click()} 
+                      className="absolute bottom-4 right-4 bg-white/20 backdrop-blur-md p-3 rounded-2xl text-white border border-white/30 hover:bg-white/40 transition-all flex items-center gap-2 text-xs font-bold"
+                    >
+                      <ImageIcon size={16} /> Replace Photo
+                    </button>
+                    <input type="file" ref={postFileRef} className="hidden" accept="image/*" onChange={handlePostImageSelect} />
+                  </div>
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Describe your masterpiece</label>
+                    <textarea 
+                      placeholder="Was it crunchy? Sweet? Perfect for a rainy day? Write your thoughts..." 
+                      className="w-full h-40 bg-slate-50 border border-slate-100 rounded-2xl p-6 outline-none text-sm placeholder:text-slate-300 focus:border-orange-200 transition-all resize-none leading-relaxed" 
+                      value={postCaption} 
+                      onChange={e => setPostCaption(e.target.value)} 
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -633,7 +654,7 @@ export default function App() {
             <h1 className="text-[42px] leading-tight mb-8">Sweet<span className="font-bold italic text-slate-900">Spot</span></h1>
             <div className="flex gap-4 mb-8 overflow-x-auto hide-scrollbar py-2">
               {(['Dessert', 'Beverage', 'Coffee'] as Category[]).map(cat => (
-                <button key={cat} onClick={() => setActiveCategory(cat)} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>
+                <button key={cat} onClick={() => { setActiveCategory(cat); if (cat === 'Dessert') setSelectedSize('12oz'); }} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>
                   {cat === 'Dessert' && <Cake size={16} />}
                   {cat === 'Beverage' && <GlassWater size={16} />}
                   {cat === 'Coffee' && <CoffeeIcon size={16} />}
@@ -667,6 +688,24 @@ export default function App() {
                     <button onClick={(e) => { e.stopPropagation(); setRequestedServings(Math.min(10, requestedServings + 1))}} className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-600 hover:text-orange-500 transition-colors"><Plus size={16} /></button>
                   </div>
                 </div>
+
+                {(activeCategory === 'Coffee' || activeCategory === 'Beverage') && (
+                  <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top duration-300">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Cup Size</label>
+                    <div className="flex gap-2 p-1 bg-slate-100/80 rounded-2xl">
+                      {['8oz', '12oz', '16oz', '20oz'].map(size => (
+                        <button 
+                          key={size} 
+                          onClick={() => setSelectedSize(size)} 
+                          className={`flex-1 py-3 text-[10px] font-bold rounded-xl transition-all ${selectedSize === size ? 'bg-white text-orange-500 shadow-sm' : 'text-slate-400'}`}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <input type="text" placeholder={`Search ${activeCategory.toLowerCase()}...`} className="flex-1 bg-white shadow-sm rounded-2xl px-6 py-4 text-sm outline-none border-2 border-slate-50 focus:border-orange-200 transition-all" value={inputText} onChange={(e) => { setInputText(e.target.value); setSelectedFile(null); setPreviewUrl(null); }} />
                   <label className="w-14 h-14 bg-white shadow-sm rounded-2xl flex items-center justify-center cursor-pointer text-slate-400 hover:text-slate-600 border-2 border-slate-50">
@@ -699,7 +738,7 @@ export default function App() {
           <div className="flex-1 flex flex-col p-8 animate-in slide-in-from-right duration-500 overflow-y-auto hide-scrollbar pb-24">
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-2xl font-bold">Cloud Profile</h2>
-              <button onClick={() => setIsEditingProfile(!isEditingProfile)} className="p-2 text-slate-400"><Settings2 size={24} /></button>
+              <button onClick={() => setIsEditingProfile(!isEditingProfile)} className="p-2 text-slate-400 hover:text-slate-900 transition-colors"><Settings2 size={24} /></button>
             </div>
             <div className="flex flex-col items-center mb-10">
               <div className="relative cursor-pointer" onClick={() => avatarFileRef.current?.click()}>
@@ -724,19 +763,19 @@ export default function App() {
               <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">{authForm.email}</p>
               {isEditingProfile && (
                 <div className="w-full mt-6 p-4 bg-slate-50 rounded-2xl space-y-4 animate-in fade-in duration-300">
-                  <input type="text" value={authForm.username} onChange={e => setAuthForm({...authForm, username: e.target.value})} className="w-full p-2 text-sm bg-white rounded-lg border border-slate-100 outline-none focus:border-orange-300" placeholder="New Username" />
+                  <input type="text" value={authForm.username} onChange={e => setAuthForm({...authForm, username: e.target.value})} className="w-full p-3 text-sm bg-white rounded-xl border border-slate-100 outline-none focus:border-orange-300" placeholder="New Username" />
                   <div className="flex gap-2">
-                    <button onClick={() => { if (session?.user) syncProfile(session.user.id, {username: authForm.username}); setIsEditingProfile(false); }} className="flex-1 bg-slate-900 text-white py-2 rounded-lg text-xs font-bold">Save Changes</button>
-                    <button onClick={handleLogout} className="px-4 bg-red-50 text-red-500 py-2 rounded-lg text-xs font-bold flex items-center gap-1"><LogOut size={14} /> Logout</button>
+                    <button onClick={() => { if (session?.user) syncProfile(session.user.id, {username: authForm.username}); setIsEditingProfile(false); }} className="flex-1 bg-slate-900 text-white py-3 rounded-xl text-xs font-bold">Save Changes</button>
+                    <button onClick={handleLogout} className="px-4 bg-red-50 text-red-500 py-3 rounded-xl text-xs font-bold flex items-center gap-1"><LogOut size={14} /> Logout</button>
                   </div>
                 </div>
               )}
             </div>
             
             <div className="space-y-6 mb-10">
-               <button onClick={() => setActiveTab('history')} className="w-full p-6 bg-orange-50 rounded-[2rem] flex items-center justify-between group">
+               <button onClick={() => setActiveTab('history')} className="w-full p-6 bg-orange-50 rounded-[2.5rem] flex items-center justify-between group active:scale-[0.98] transition-all">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-orange-500 shadow-sm"><History size={20} /></div>
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-orange-500 shadow-sm border border-orange-100/50"><History size={20} /></div>
                     <div className="text-left">
                       <h4 className="font-bold text-slate-800">My Sweets History</h4>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">See past analyses</p>
@@ -772,18 +811,34 @@ export default function App() {
                 </div>
               </div>
             </div>
+
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Sweet Diary</h4>
-                <button onClick={() => setShowPostFlow(true)} className="text-orange-500 font-bold text-xs flex items-center gap-1"><Plus size={14} /> Post New</button>
+                <button onClick={() => setShowPostFlow(true)} className="text-orange-500 font-bold text-xs flex items-center gap-1 active:scale-90 transition-all"><Plus size={14} /> Post New</button>
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
-                {profile.diaries.length === 0 ? <div className="col-span-2 text-center py-8 text-slate-300 text-xs italic">Diary is empty.</div> : profile.diaries.map(d => (
-                  <div key={d.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-50 group">
-                    <div className="aspect-square relative"><img src={d.photo} className="w-full h-full object-cover" /></div>
-                    <div className="p-3"><p className="text-[10px] text-slate-400 font-bold mb-1">{new Date(d.date).toLocaleDateString()}</p><p className="text-[11px] text-slate-600 font-medium line-clamp-1">{d.text}</p></div>
+                {profile.diaries.length === 0 ? (
+                  <div className="col-span-2 text-center py-16 px-10 bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-200">
+                    <ImageIcon size={32} className="text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-400 text-xs italic">Your diary is waiting for its first entry. Share your baking moments!</p>
                   </div>
-                ))}
+                ) : (
+                  profile.diaries.map(d => (
+                    <div key={d.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-50 group active:scale-95 transition-all">
+                      <div className="aspect-square relative overflow-hidden">
+                        <img src={d.photo} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                        <div className="absolute top-2 right-2 px-2 py-1 bg-white/40 backdrop-blur-md rounded-lg text-[8px] font-black text-white uppercase tracking-tighter">
+                          {new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <p className="text-[11px] text-slate-600 font-medium leading-relaxed line-clamp-2">{d.text}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -798,7 +853,7 @@ export default function App() {
                 <div className="text-center py-20 text-slate-300 italic">No saved sweets yet. Explore recipes to save them here!</div>
               ) : (
                 savedRecipes.map((r, i) => (
-                  <div key={i} onClick={() => { setRecipe(r); setPreviewUrl(null); }} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-orange-200 cursor-pointer transition-all">
+                  <div key={i} onClick={() => { setRecipe(r); setPreviewUrl(null); }} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-orange-200 cursor-pointer transition-all active:scale-[0.98]">
                     <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-400 font-bold text-2xl">🍰</div>
                     <div className="flex-1">
                       <h4 className="font-bold text-slate-800">{r.itemName}</h4>
@@ -905,22 +960,22 @@ export default function App() {
                   ))}
                 </div>
               </section>
-              <button onClick={() => { setPostImage(heroImage); setShowPostFlow(true); }} className="w-full mt-12 bg-orange-50 text-orange-600 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 border-2 border-orange-100 hover:bg-orange-100 transition-all"><Camera size={20} /> Share Result to Diary</button>
+              <button onClick={() => { setPostImage(heroImage); setShowPostFlow(true); }} className="w-full mt-12 bg-orange-50 text-orange-600 py-5 rounded-2xl font-bold flex items-center justify-center gap-2 border-2 border-orange-100 hover:bg-orange-100 active:scale-95 transition-all"><Camera size={20} /> Share Result to Diary</button>
             </div>
           </div>
         )}
 
         {/* NAVIGATION */}
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[420px] h-20 bg-white/95 backdrop-blur-xl border-t border-slate-50 px-10 flex justify-between items-center z-[100] md:rounded-b-[3.5rem]">
-          <button onClick={() => setActiveTab('home')} className={`${activeTab === 'home' ? 'text-orange-500' : 'text-slate-300'} flex flex-col items-center gap-1`}>
+          <button onClick={() => setActiveTab('home')} className={`${activeTab === 'home' ? 'text-orange-500' : 'text-slate-300'} flex flex-col items-center gap-1 active:scale-90 transition-all`}>
             <Home size={22} />
             <span className="text-[8px] font-bold uppercase tracking-widest">Home</span>
           </button>
-          <button onClick={() => setActiveTab('profile')} className={`${activeTab === 'profile' ? 'text-orange-500' : 'text-slate-300'} flex flex-col items-center gap-1`}>
+          <button onClick={() => setActiveTab('profile')} className={`${activeTab === 'profile' ? 'text-orange-500' : 'text-slate-300'} flex flex-col items-center gap-1 active:scale-90 transition-all`}>
             <User size={22} />
             <span className="text-[8px] font-bold uppercase tracking-widest">Profile</span>
           </button>
-          <button onClick={() => setActiveTab('saved')} className={`${activeTab === 'saved' ? 'text-orange-500' : 'text-slate-300'} flex flex-col items-center gap-1`}>
+          <button onClick={() => setActiveTab('saved')} className={`${activeTab === 'saved' ? 'text-orange-500' : 'text-slate-300'} flex flex-col items-center gap-1 active:scale-90 transition-all`}>
             <Bookmark size={22} fill={activeTab === 'saved' ? "currentColor" : "none"} />
             <span className="text-[8px] font-bold uppercase tracking-widest">Saved</span>
           </button>

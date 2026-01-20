@@ -16,7 +16,7 @@ const recipeSchema = {
     ingredients: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "List of required ingredients, scaled to the requested servings"
+      description: "List of required ingredients, scaled to the requested servings and size"
     },
     tools: {
       type: Type.ARRAY,
@@ -39,12 +39,13 @@ const recipeSchema = {
   required: ["itemName", "description", "prepTime", "servings", "calories", "ingredients", "tools", "steps"]
 };
 
-export const analyzeInput = async (input: string | File, proficiency: ProficiencyLevel, servings: number): Promise<RecipeData> => {
+export const analyzeInput = async (input: string | File, proficiency: ProficiencyLevel, servings: number, size?: string): Promise<RecipeData> => {
   const ai = getAI();
   const model = 'gemini-3-pro-preview';
   
   let content;
-  const levelContext = `The user is at a "${proficiency}" level. Scale the recipe for ${servings} people. ${
+  const sizeContext = size ? ` Scale the ingredients for a ${size} cup size per serving.` : '';
+  const levelContext = `The user is at a "${proficiency}" level. Scale the recipe for ${servings} people.${sizeContext} ${
     proficiency === 'Beginner' ? 'Provide simple, detailed steps and common ingredients.' : 
     proficiency === 'Professional' ? 'Use technical terminology and advanced techniques.' : 
     'Provide a standard, high-quality recipe.'
@@ -66,7 +67,6 @@ export const analyzeInput = async (input: string | File, proficiency: Proficienc
     };
   }
 
-  // ai.models.generateContent is used directly to query GenAI with both model and prompt.
   const response = await ai.models.generateContent({
     model,
     contents: content.contents[0],
@@ -77,7 +77,6 @@ export const analyzeInput = async (input: string | File, proficiency: Proficienc
     }
   });
 
-  // Access the text property directly without calling it as a method.
   if (!response.text) throw new Error("Could not parse recipe data");
   return JSON.parse(response.text);
 };
